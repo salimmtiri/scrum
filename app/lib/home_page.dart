@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 void main() {
   runApp(MyApp());
@@ -15,6 +17,10 @@ class MyApp extends StatelessWidget {
           iconTheme: IconThemeData(color: Colors.white),
         ),
         iconTheme: IconThemeData(color: Colors.white),
+        scaffoldBackgroundColor: Colors.black,
+        textTheme: TextTheme(
+          bodyMedium: TextStyle(color: Colors.white),
+        ),
       ),
       home: HomePage(),
     );
@@ -28,48 +34,32 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
-
-  final List<Community> _communities = [
-    Community(
-      name: 'Flutter Community',
-      posts: [
-        Post(
-          title: 'Flutter 3.0 Released!',
-          content: 'Here are the details of Flutter 3.0...',
-          upvotes: 120,
-          downvotes: 3,
-          commentsCount: 15,
-        ),
-        Post(
-          title: 'Best practices for Flutter development',
-          content: 'This post outlines the best practices...',
-          upvotes: 95,
-          downvotes: 2,
-          commentsCount: 8,
-        ),
-      ],
-    ),
-    Community(
-      name: 'Programming Community',
-      posts: [
-        Post(
-          title: 'How to become a better programmer',
-          content: 'The path to becoming a better programmer...',
-          upvotes: 200,
-          downvotes: 5,
-          commentsCount: 30,
-        ),
-      ],
-    ),
-  ];
-
-  List<Widget> _pages = [];
+  List<Community> _communities = [];
 
   @override
   void initState() {
     super.initState();
+    _fetchCommunities();
+  }
 
-    _pages = [
+  Future<void> _fetchCommunities() async {
+    final response =
+        await http.get(Uri.parse('http://localhost:3000/api/communities'));
+
+    if (response.statusCode == 200) {
+      final List<dynamic> data = json.decode(response.body);
+      setState(() {
+        _communities =
+            data.map((community) => Community.fromJson(community)).toList();
+      });
+    } else {
+      throw Exception('Failed to load communities');
+    }
+  }
+
+  // This is where we define _pages list
+  List<Widget> _buildPages() {
+    return [
       HomePageContent(communities: _communities),
       Center(child: Text('Communities', style: TextStyle(color: Colors.white))),
       Center(child: Text('Create', style: TextStyle(color: Colors.white))),
@@ -131,7 +121,7 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
       ),
-      body: _pages[_selectedIndex],
+      body: _buildPages()[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
@@ -345,55 +335,36 @@ class _PostCardState extends State<PostCard> {
               style: TextStyle(color: Colors.white70),
             ),
             SizedBox(height: 10.0),
-            Divider(color: Colors.white30),
-            // The Row for upvotes, downvotes, comments, and share
             Row(
-              mainAxisAlignment: MainAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Upvote section
-                IconButton(
-                  icon: Icon(Icons.arrow_upward, color: Colors.green),
-                  onPressed: _incrementUpvote,
+                Row(
+                  children: [
+                    IconButton(
+                      icon: Icon(Icons.thumb_up, color: Colors.white),
+                      onPressed: _incrementUpvote,
+                    ),
+                    Text(
+                      '$_upvotes',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ],
                 ),
-                Text('$_upvotes', style: TextStyle(color: Colors.white)),
-
-                SizedBox(
-                    width: 16.0), // Add spacing between upvote and downvote
-
-                // Downvote section
-                IconButton(
-                  icon: Icon(Icons.arrow_downward, color: Colors.red),
-                  onPressed: _incrementDownvote,
-                ),
-                Text('$_downvotes', style: TextStyle(color: Colors.white)),
-
-                SizedBox(
-                    width: 16.0), // Add spacing between downvote and comment
-
-                // Comment section
-                IconButton(
-                  icon: Icon(Icons.comment, color: Colors.white),
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Navigate to comments')),
-                    );
-                  },
+                Row(
+                  children: [
+                    IconButton(
+                      icon: Icon(Icons.thumb_down, color: Colors.white),
+                      onPressed: _incrementDownvote,
+                    ),
+                    Text(
+                      '$_downvotes',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ],
                 ),
                 Text(
-                  '${widget.post.commentsCount} Comments',
+                  '${widget.post.commentsCount} comments',
                   style: TextStyle(color: Colors.white),
-                ),
-
-                Spacer(),
-
-                // Share button
-                IconButton(
-                  icon: Icon(Icons.share, color: Colors.white),
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Post shared')),
-                    );
-                  },
                 ),
               ],
             ),
@@ -409,6 +380,14 @@ class Community {
   final List<Post> posts;
 
   Community({required this.name, required this.posts});
+
+  factory Community.fromJson(Map<String, dynamic> json) {
+    return Community(
+      name: json['name'],
+      posts:
+          (json['posts'] as List).map((post) => Post.fromJson(post)).toList(),
+    );
+  }
 }
 
 class Post {
@@ -418,60 +397,55 @@ class Post {
   final int downvotes;
   final int commentsCount;
 
-  Post(
-      {required this.title,
-      required this.content,
-      required this.upvotes,
-      required this.downvotes,
-      required this.commentsCount});
+  Post({
+    required this.title,
+    required this.content,
+    required this.upvotes,
+    required this.downvotes,
+    required this.commentsCount,
+  });
+
+  factory Post.fromJson(Map<String, dynamic> json) {
+    return Post(
+      title: json['title'],
+      content: json['content'],
+      upvotes: json['upvotes'],
+      downvotes: json['downvotes'],
+      commentsCount: json['commentsCount'],
+    );
+  }
 }
 
 class CustomSearchDelegate extends SearchDelegate {
   @override
-  List<Widget>? buildActions(BuildContext context) {
+  List<Widget> buildActions(BuildContext context) {
     return [
       IconButton(
-        icon: Icon(Icons.clear, color: Colors.white),
+        icon: Icon(Icons.clear),
         onPressed: () {
-          query = ''; // Clear the search field
+          query = '';
         },
       ),
     ];
   }
 
   @override
-  Widget? buildLeading(BuildContext context) {
+  Widget buildLeading(BuildContext context) {
     return IconButton(
-      icon: Icon(Icons.arrow_back, color: Colors.white),
+      icon: Icon(Icons.arrow_back),
       onPressed: () {
-        close(context, null); // Close the search
+        close(context, null);
       },
     );
   }
 
   @override
   Widget buildResults(BuildContext context) {
-    return Center(
-      child: Text('Search Results for "$query"',
-          style: TextStyle(color: Colors.white)),
-    );
+    return Center(child: Text('Search Results for: $query'));
   }
 
   @override
   Widget buildSuggestions(BuildContext context) {
-    return ListView.builder(
-      itemCount: 5,
-      itemBuilder: (context, index) {
-        return ListTile(
-          leading: Icon(Icons.history, color: Colors.white),
-          title: Text('Suggestion $index for "$query"',
-              style: TextStyle(color: Colors.white)),
-          onTap: () {
-            query = 'Suggestion $index';
-            showResults(context);
-          },
-        );
-      },
-    );
+    return Center(child: Text('Suggestions for: $query'));
   }
 }

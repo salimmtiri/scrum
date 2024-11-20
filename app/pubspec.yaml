@@ -10,8 +10,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  http: ^1.2.2 # Ensure you have the correct version of the HTTP package
-  cupertino_icons: ^1.0.2
+  http: ^1.2.2  # Add this line
+
 
 dev_dependencies:
   flutter_test:

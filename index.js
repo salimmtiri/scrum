@@ -1,40 +1,60 @@
 const express = require("express");
-const cors = require("cors"); // Import the CORS middleware
-const bcrypt = require("bcrypt");
+const cors = require("cors");
+const mongoose = require("mongoose");
 
 const app = express();
-app.use(cors()); // Enable CORS for all requests
+app.use(cors());
 app.use(express.json());
 
-// Simulated user data for demo purposes
-const users = {
-  moderator: {
-    username: "moderator",
-    passwordHash: bcrypt.hashSync("moderator_password", 10) // Replace with a secure password
+// Connect to MongoDB
+mongoose
+  .connect("mongodb://localhost:27017/iteam", {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  })
+  .then(() => {
+    console.log("Connected to MongoDB - Database: iteam");
+  })
+  .catch((err) => {
+    console.error("Failed to connect to MongoDB", err);
+  });
+
+// Define MongoDB schemas and models
+const postSchema = new mongoose.Schema({
+  title: String,
+  content: String,
+  upvotes: Number,
+  downvotes: Number,
+  commentsCount: Number,
+});
+
+const communitySchema = new mongoose.Schema(
+  {
+    name: String,
+    posts: [postSchema],
+  },
+  { collection: "communityDB" } // Explicitly set the collection name
+);
+
+const Community = mongoose.model("Community", communitySchema); // Mongoose model
+
+// API Route to fetch communities
+app.get("/api/communities", async (req, res) => {
+  try {
+    const communities = await Community.find();
+    if (communities.length === 0) {
+      console.log("No communities found.");
+      return res.status(404).json({ error: "No communities found" });
+    }
+    console.log("Fetched communities:", communities);
+    res.json(communities);
+  } catch (error) {
+    console.error("Error fetching communities:", error);
+    res.status(500).json({ error: "Failed to fetch communities" });
   }
-};
-
-// Route for the root URL
-app.get('/', (req, res) => {
-  res.send('Welcome to the Node.js server');
 });
 
-// Login route
-app.post("/login", async (req, res) => {
-  const { username, password } = req.body;
-  const user = users[username];
-
-  if (user && await bcrypt.compare(password, user.passwordHash)) {
-    res.send({ message: "Login successful" });
-  } else {
-    res.status(401).send({ message: "Invalid credentials" });
-  }
-});
-
-// Protected route for the dashboard
-app.get("/dashboard", (req, res) => {
-  res.send({ message: "Welcome to the moderator dashboard" });
-});
-
-// Start server
-app.listen(3000, () => console.log("Server running on http://localhost:3000"));
+// Start the server
+app.listen(3000, () =>
+  console.log("Server running on http://localhost:3000")
+);
