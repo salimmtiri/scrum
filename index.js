@@ -1,60 +1,39 @@
-const express = require("express");
-const cors = require("cors");
-const mongoose = require("mongoose");
+// index.js
+const express = require('express');
+const mongoose = require('mongoose');
+const bodyParser = require('body-parser');
+const communityRoutes = require('./app/routes/communityRoutes'); // Import the community routes
+const postRoutes = require("./app/routes/postRoutes");
+const cors = require('cors');
+
 
 const app = express();
-app.use(cors());
-app.use(express.json());
+app.use(cors({
+  origin: 'http://localhost:3000',  // Replace with your Flutter web app's URL
+}));
+// Middleware to parse JSON requests
+app.use(bodyParser.json());
+
+// MongoDB connection URI (use your own URI if different)
+const mongoURI = 'mongodb://localhost:27017/iteam'; // Change this to your MongoDB URI
 
 // Connect to MongoDB
-mongoose
-  .connect("mongodb://localhost:27017/iteam", {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
+mongoose.connect(mongoURI)
   .then(() => {
-    console.log("Connected to MongoDB - Database: iteam");
+    console.log('MongoDB connected successfully!');
   })
-  .catch((err) => {
-    console.error("Failed to connect to MongoDB", err);
+  .catch((error) => {
+    console.error('Error connecting to MongoDB:', error);
+    process.exit(1);  // Exit the process if connection fails
   });
 
-// Define MongoDB schemas and models
-const postSchema = new mongoose.Schema({
-  title: String,
-  content: String,
-  upvotes: Number,
-  downvotes: Number,
-  commentsCount: Number,
+
+// Use the community routes for the API
+app.use('/api', communityRoutes); 
+app.use("/api", postRoutes); // Prefix your routes with `/api`
+
+// Set the port and start the server
+const PORT = process.env.PORT || 3000;  // You can set this to any available port
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
-
-const communitySchema = new mongoose.Schema(
-  {
-    name: String,
-    posts: [postSchema],
-  },
-  { collection: "communityDB" } // Explicitly set the collection name
-);
-
-const Community = mongoose.model("Community", communitySchema); // Mongoose model
-
-// API Route to fetch communities
-app.get("/api/communities", async (req, res) => {
-  try {
-    const communities = await Community.find();
-    if (communities.length === 0) {
-      console.log("No communities found.");
-      return res.status(404).json({ error: "No communities found" });
-    }
-    console.log("Fetched communities:", communities);
-    res.json(communities);
-  } catch (error) {
-    console.error("Error fetching communities:", error);
-    res.status(500).json({ error: "Failed to fetch communities" });
-  }
-});
-
-// Start the server
-app.listen(3000, () =>
-  console.log("Server running on http://localhost:3000")
-);
