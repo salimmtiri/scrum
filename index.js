@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
 const communityRoutes = require('./app/routes/communityRoutes'); // Import the community routes
 const postRoutes = require("./app/routes/postRoutes");
+const commentroute = require("./app/routes/commentroute");
 const cors = require('cors');
 
 
@@ -31,7 +32,7 @@ mongoose.connect(mongoURI)
 // Use the community routes for the API
 app.use('/api', communityRoutes); 
 app.use("/api", postRoutes); // Prefix your routes with `/api`
-
+app.use("/api",commentroute)
 // Set the port and start the server
 const PORT = process.env.PORT || 3000;  // You can set this to any available port
 app.listen(PORT, () => {

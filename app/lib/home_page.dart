@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'create_community.dart';
 import 'dart:math';
+import 'comments.dart';
 
 void main() {
   runApp(MyApp());
@@ -281,64 +282,13 @@ class PostCard extends StatefulWidget {
 class _PostCardState extends State<PostCard> {
   int _upvotes = 0;
   int _downvotes = 0;
-  bool _hasVoted = false; // Flag to track if the user has already voted
+  bool _hasVoted = false;
 
   @override
   void initState() {
     super.initState();
     _upvotes = widget.post.upvotes;
     _downvotes = widget.post.downvotes;
-  }
-
-  Future<void> _vote(String type) async {
-    if (_hasVoted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("You have already voted!")),
-      );
-      return;
-    }
-
-    final url = Uri.parse("http://localhost:3000/api/vote");
-
-    setState(() {
-      _hasVoted = true; // Set the flag to true once the user votes
-    });
-
-    try {
-      final response = await http.post(
-        url,
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({
-          "postId": widget.post.id,
-          "type": type,
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        final responseData = jsonDecode(response.body);
-        setState(() {
-          if (type == "upvote") {
-            _upvotes = responseData["updatedCount"];
-          } else if (type == "downvote") {
-            _downvotes = responseData["updatedCount"];
-          }
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("${type.capitalize()} successful!")),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Failed to $type. Please try again.")),
-        );
-      }
-    } catch (e) {
-      setState(() {
-        _hasVoted = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("An error occurred. Please try again.")),
-      );
-    }
   }
 
   String getRandomTime() {
@@ -349,11 +299,24 @@ class _PostCardState extends State<PostCard> {
       return '$randomMinutes minute${randomMinutes == 1 ? '' : 's'} ago';
     } else if (randomMinutes < 1440) {
       int hours = randomMinutes ~/ 60;
-      return '$hours hour${hours == 1 ? '' : 's'} ago';
+      return '$hours h${hours == 1 ? '' : 's'} ago';
     } else {
       int days = randomMinutes ~/ 1440;
       return '$days day${days == 1 ? '' : 's'} ago';
     }
+  }
+
+  void _vote(String type) {
+    if (_hasVoted) return; // Prevent multiple votes
+
+    setState(() {
+      if (type == "upvote") {
+        _upvotes++;
+      } else if (type == "downvote") {
+        _downvotes++;
+      }
+      _hasVoted = true;
+    });
   }
 
   @override
@@ -383,7 +346,6 @@ class _PostCardState extends State<PostCard> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                // Time on the top right
                 Text(
                   getRandomTime(),
                   style: TextStyle(color: Colors.grey[600], fontSize: 12),
@@ -391,23 +353,19 @@ class _PostCardState extends State<PostCard> {
               ],
             ),
             const SizedBox(height: 10.0),
-            // Post Content Preview (middle part)
             Text(
               widget.post.content,
               style: TextStyle(color: Colors.grey[400]),
             ),
             const SizedBox(height: 10.0),
-            // Row for upvotes, downvotes, and comments at the bottom left
             Row(
               children: [
-                // Upvote Button
                 IconButton(
                   icon: const Icon(Icons.thumb_up, color: Colors.green),
                   onPressed: () => _vote("upvote"),
                 ),
                 Text("$_upvotes", style: const TextStyle(color: Colors.white)),
                 const SizedBox(width: 10.0),
-                // Downvote Button
                 IconButton(
                   icon: const Icon(Icons.thumb_down, color: Colors.red),
                   onPressed: () => _vote("downvote"),
@@ -415,11 +373,25 @@ class _PostCardState extends State<PostCard> {
                 Text("$_downvotes",
                     style: const TextStyle(color: Colors.white)),
                 const SizedBox(width: 10.0),
-                // Comments Count
-                const Icon(Icons.comment, color: Colors.white),
-                Text(
-                  widget.post.commentsCount.toString(),
-                  style: const TextStyle(color: Colors.white),
+                GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            CommentsPage(postId: widget.post.id),
+                      ),
+                    );
+                  },
+                  child: Row(
+                    children: [
+                      const Icon(Icons.comment, color: Colors.white),
+                      Text(
+                        widget.post.commentsCount.toString(),
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
