@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'create_community.dart';
-import 'dart:math';
 import 'comments.dart';
 
 void main() {
@@ -284,26 +283,14 @@ class _PostCardState extends State<PostCard> {
   int _downvotes = 0;
   bool _hasVoted = false;
 
+  String _selectedReason = 'Harassment';
+  TextEditingController _complaintController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
     _upvotes = widget.post.upvotes;
     _downvotes = widget.post.downvotes;
-  }
-
-  String getRandomTime() {
-    final random = Random();
-    int randomMinutes = random.nextInt(1440); // Random minutes within 24 hours
-
-    if (randomMinutes < 60) {
-      return '$randomMinutes minute${randomMinutes == 1 ? '' : 's'} ago';
-    } else if (randomMinutes < 1440) {
-      int hours = randomMinutes ~/ 60;
-      return '$hours h${hours == 1 ? '' : 's'} ago';
-    } else {
-      int days = randomMinutes ~/ 1440;
-      return '$days day${days == 1 ? '' : 's'} ago';
-    }
   }
 
   void _vote(String type) {
@@ -317,6 +304,96 @@ class _PostCardState extends State<PostCard> {
       }
       _hasVoted = true;
     });
+  }
+
+  Future<void> _submitReport() async {
+    if (_complaintController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Please provide a complaint')),
+      );
+      return;
+    }
+
+    try {
+      var response = await http.post(
+        Uri.parse('http://localhost:3000/api/report'),
+        headers: <String, String>{'Content-Type': 'application/json'},
+        body: json.encode({
+          'postId': widget.post.id,
+          'userId':
+              '6731f5139835ddd090352a7d', // You might want to use actual user id
+          'reason': _selectedReason,
+          'complaint': _complaintController.text,
+        }),
+      );
+
+      if (response.statusCode == 201) {
+        Navigator.pop(context); // Close the modal on success
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Post reported successfully!')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to report the post')),
+        );
+      }
+    } catch (error) {
+      print(error);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error while submitting the report')),
+      );
+    }
+  }
+
+  void _showReportDialog() {
+    // This will open a modal bottom sheet with the "Report" button
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Report this post',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 10),
+              DropdownButton<String>(
+                value: _selectedReason,
+                onChanged: (String? newValue) {
+                  setState(() {
+                    _selectedReason = newValue!;
+                  });
+                },
+                items: <String>['Harassment', 'Annoying', 'Other']
+                    .map<DropdownMenuItem<String>>((String value) {
+                  return DropdownMenuItem<String>(
+                    value: value,
+                    child: Text(value),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _complaintController,
+                decoration: InputDecoration(
+                  labelText: 'Complaint (optional)',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 3,
+              ),
+              const SizedBox(height: 10),
+              ElevatedButton(
+                onPressed: _submitReport,
+                child: Text('Submit Report'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -346,9 +423,10 @@ class _PostCardState extends State<PostCard> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                Text(
-                  getRandomTime(),
-                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                // Three vertical dots button
+                IconButton(
+                  icon: const Icon(Icons.more_vert, color: Colors.white),
+                  onPressed: _showReportDialog, // Show pop-up on click
                 ),
               ],
             ),
@@ -375,6 +453,7 @@ class _PostCardState extends State<PostCard> {
                 const SizedBox(width: 10.0),
                 GestureDetector(
                   onTap: () {
+                    // Navigate to CommentsPage
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -398,21 +477,6 @@ class _PostCardState extends State<PostCard> {
           ],
         ),
       ),
-    );
-  }
-}
-
-class Community {
-  final String name;
-  final List<Post> posts;
-
-  Community({required this.name, required this.posts});
-
-  factory Community.fromJson(Map<String, dynamic> json) {
-    return Community(
-      name: json['name'],
-      posts:
-          (json['posts'] as List).map((post) => Post.fromJson(post)).toList(),
     );
   }
 }
@@ -442,6 +506,21 @@ class Post {
       upvotes: json['upvotes'],
       downvotes: json['downvotes'],
       commentsCount: json['commentsCount'],
+    );
+  }
+}
+
+class Community {
+  final String name;
+  final List<Post> posts;
+
+  Community({required this.name, required this.posts});
+
+  factory Community.fromJson(Map<String, dynamic> json) {
+    return Community(
+      name: json['name'],
+      posts:
+          (json['posts'] as List).map((post) => Post.fromJson(post)).toList(),
     );
   }
 }

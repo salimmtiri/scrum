@@ -5,6 +5,7 @@ const bodyParser = require('body-parser');
 const communityRoutes = require('./app/routes/communityRoutes'); // Import the community routes
 const postRoutes = require("./app/routes/postRoutes");
 const commentroute = require("./app/routes/commentroute");
+const report = require("./app/routes/reportsroute");
 const cors = require('cors');
 
 
@@ -30,6 +31,7 @@ mongoose.connect(mongoURI)
 
 
 // Use the community routes for the API
+app.use('/api', report);
 app.use('/api', communityRoutes); 
 app.use("/api", postRoutes); // Prefix your routes with `/api`
 app.use("/api",commentroute)
